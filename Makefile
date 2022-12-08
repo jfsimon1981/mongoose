@@ -2,7 +2,8 @@ SRCS = mongoose.c test/unit_test.c test/packed_fs.c
 HDRS = $(wildcard src/*.h) $(wildcard mip/*.h)
 DEFS ?= -DMG_MAX_HTTP_HEADERS=7 -DMG_ENABLE_LINES -DMG_ENABLE_PACKED_FS=1 -DMG_ENABLE_SSI=1
 WARN ?= -pedantic -W -Wall -Werror -Wshadow -Wdouble-promotion -fno-common -Wconversion -Wundef
-OPTS ?= -O3 -g3
+# Optimization: O2
+OPTS ?= -O2 -g3 -fprofile-arcs -ftest-coverage
 INCS ?= -Isrc -I.
 SSL ?=
 CWD ?= $(realpath $(CURDIR))
