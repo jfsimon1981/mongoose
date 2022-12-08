@@ -10,8 +10,8 @@ jobs:
       matrix:
         cc: [gcc]
 #       cc: [gcc, clang, g++, clang++]
-        target: [test, mip_test]
-#       target: [test]
+#       target: [test, mip_test]
+        target: [test]
         ssl: [OPENSSL]
 #       ssl: [MBEDTLS, OPENSSL]
     name: linux ${{ matrix.target }} CC=${{ matrix.cc }} SSL=${{ matrix.ssl }}
