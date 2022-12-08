@@ -21,6 +21,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: ./test/setup_ga_network.sh
-    - run: sudo apt-get update ; sudo apt-get install libmbedtls-dev
+#   - run: sudo apt-get update ; sudo apt-get install libmbedtls-dev
     - run: make ${{ matrix.target }}
     - uses: codecov/codecov-action@v3
+      with:
+        gcov: true
+        gcov_include: mongoose.c
