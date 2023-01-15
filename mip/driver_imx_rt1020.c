@@ -399,7 +399,11 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
                 // exception" return might vector to incorrect interrupt.
     if (++s_txno >= ENET_TXBD_NUM) s_txno = 0;
   }
+  while (ENET->TDAR) {}
 
+  // FIXME PHY: Green light did'nt come up initially ?
+  int i=0;
+  MG_INFO(("Passing %d", i++));
   /*(void) buf, (void) len,*/ (void) userdata;
   return len;
 }
