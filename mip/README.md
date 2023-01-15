@@ -10,6 +10,7 @@ and you're done!
 - STM32F4xx
 - STM32F7xx
 - W5500
+- RT1020 / KSZ8081RNB (Experimental / Works)
 
 ## Example usage
 

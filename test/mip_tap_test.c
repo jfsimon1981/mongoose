@@ -5,7 +5,7 @@
 #define MG_ENABLE_LINES 1
 
 #include <assert.h>
-#ifndef __OpenBSD__
+#if !defined(__OpenBSD__) && !defined(__FreeBSD__)
 #include <linux/if.h>
 #include <linux/if_tun.h>
 #else
@@ -129,7 +129,7 @@ static void test_http_fetch(void) {
   // Setup interface
   const char *iface = "tap0";             // Network iface
   const char *mac = "00:00:01:02:03:78";  // MAC address
-#ifndef __OpenBSD__
+#if !defined(__OpenBSD__) && !defined(__FreeBSD__)
   const char* tuntap_device = "/dev/net/tun";
 #else
   const char* tuntap_device = "/dev/tap0";
@@ -138,7 +138,7 @@ static void test_http_fetch(void) {
   struct ifreq ifr;
   memset(&ifr, 0, sizeof(ifr));
   strncpy(ifr.ifr_name, iface, IFNAMSIZ);
-#ifndef __OpenBSD__
+#if !defined(__OpenBSD__) && !defined(__FreeBSD__)
   ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
   if (ioctl(fd, TUNSETIFF, (void *) &ifr) < 0) {
     MG_ERROR(("Failed to setup TAP interface: %s", ifr.ifr_name));

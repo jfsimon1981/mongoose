@@ -824,7 +824,7 @@ void mip_init(struct mg_mgr *mgr, struct mip_if *ifp) {
   if (ifp->driver->init && !ifp->driver->init(ifp->mac, ifp->driver_data)) {
     MG_ERROR(("driver init failed"));
   } else {
-    size_t maxpktsize = 1540;
+    size_t maxpktsize = 1540; // 1522 ?
     ifp->rx.ptr = (char *) calloc(1, maxpktsize), ifp->rx.len = maxpktsize;
     ifp->tx.ptr = (char *) calloc(1, maxpktsize), ifp->tx.len = maxpktsize;
     if (ifp->driver->setrx) {

@@ -53,6 +53,7 @@ void mg_log(const char *fmt, ...) {
   va_start(ap, fmt);
   mg_vxprintf(s_log_func, s_log_func_param, fmt, &ap);
   va_end(ap);
+  logc((unsigned char) '\r');
   logc((unsigned char) '\n');
 }
 
