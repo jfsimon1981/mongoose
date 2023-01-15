@@ -402,7 +402,8 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
   while (ENET->TDAR) {}
 
   // FIXME PHY: Green light did'nt come up initially ?
-  int i=0;
+  static int i=0;
+
   MG_INFO(("Passing %d", i++));
   /*(void) buf, (void) len,*/ (void) userdata;
   return len;
