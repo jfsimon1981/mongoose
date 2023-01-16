@@ -284,12 +284,25 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
     eth_write_phy(PHY_ADDR, PHY_BCR, 0x1200); // PHY W @0x00 D=0x1200 Autonego enable + start
     eth_write_phy(PHY_ADDR, 0x1f, 0x8180);    // PHY W @0x1f D=0x8180 Ref clock 50 MHz at XI input
 
-    MG_INFO(("Wait for link up"));
-    uint32_t linkup = 0;
-    int linkup_tentatives = 5;
-    while (!linkup && linkup_tentatives-- > 0) {
-      linkup = mip_driver_imx_rt1020_up(NULL);
-      delay(0x500000); // Approx 1s
+    {
+      MG_INFO(("Wait for link up (Autoconf)"));
+      uint32_t linkup = 0;
+      int linkup_tentatives = 5;
+      while (!linkup && linkup_tentatives-- > 0) {
+        linkup = mip_driver_imx_rt1020_up(NULL);
+        delay(0x500000); // Approx 1s
+      }
+
+      if (!linkup) {
+        MG_ERROR(("Error: Link didn't come up"));
+      }
+      else {
+          MG_INFO(("Link up"));
+        }
+        uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
+        uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
+        MG_INFO(("bsr: 0x%x", bsr));
+        MG_INFO(("bcr: 0x%x", bcr));
     }
 
     {
@@ -298,20 +311,31 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
       bcr &= BIT_CLEAR(12); // Autonegociation off
       bcr &= BIT_CLEAR(10); // Isolation -> Normal
       bcr &= BIT_CLEAR(13); // 10M Link speed
-//    bcr &= BIT_CLEAR(8); // Half-duplex
+      bcr |= BIT_CLEAR(8);  // Full-duplex
       eth_write_phy(PHY_ADDR, PHY_BCR, bcr);
     }
 
-    if (!linkup) {
-      MG_ERROR(("Error: Link didn't come up"));
-    }
-    else {
-        MG_INFO(("Link up"));
+    {
+      MG_INFO(("Wait for link up (reconf 10M)"));
+      uint32_t linkup = 0;
+      int linkup_tentatives = 5;
+      while (!linkup && linkup_tentatives-- > 0) {
+        linkup = mip_driver_imx_rt1020_up(NULL);
+        delay(0x500000); // Approx 1s
       }
-      uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
-      uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
-      MG_INFO(("bsr: 0x%x", bsr));
-      MG_INFO(("bcr: 0x%x", bcr));
+
+      if (!linkup) {
+        MG_ERROR(("Error: Link didn't come up"));
+      }
+      else {
+          MG_INFO(("Link up"));
+        }
+        uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
+        uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
+        MG_INFO(("bsr: 0x%x", bsr));
+        MG_INFO(("bcr: 0x%x", bcr));
+    }
+
   }
 
   // Link UP, 100BaseTX Full-duplex
