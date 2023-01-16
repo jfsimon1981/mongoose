@@ -274,8 +274,9 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
 
   // PHY: Start Link
   {
-    eth_write_phy(PHY_ADDR, PHY_BCR, 0x1200); // PHY W @0x00 D=0x1200 Autonego enable + start
     eth_write_phy(PHY_ADDR, PHY_BCR, 0x8000); // PHY W @0x00 D=0x8000 Soft reset
+    while (eth_read_phy(PHY_ADDR, PHY_BSR) & BIT_SET(15)) {delay(0x6000);} // Wait finished poll 10ms
+    eth_write_phy(PHY_ADDR, PHY_BCR, 0x1200); // PHY W @0x00 D=0x1200 Autonego enable + start
     eth_write_phy(PHY_ADDR, 0x1f, 0x8180);    // PHY W @0x1f D=0x8180 Ref clock 50 MHz at XI input
 
     MG_INFO(("Wait for link up"));
@@ -289,8 +290,10 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
     }
     if (!linkup)
       MG_ERROR(("Error: Link didn't come up"));
-    else
+    else {
       MG_INFO(("Link up"));
+      
+    }
   }
 
   // Link UP, 100BaseTX Full-duplex
