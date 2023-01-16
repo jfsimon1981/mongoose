@@ -288,12 +288,16 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
       // if (!linkup) MG_INFO(("Driver: PHY down"));
       // else MG_INFO(("Driver: PHY up"));
     }
-    if (!linkup)
+    if (!linkup) {
       MG_ERROR(("Error: Link didn't come up"));
-    else {
-      MG_INFO(("Link up"));
-      
     }
+    else {
+        MG_INFO(("Link up"));
+      }
+      uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
+      uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
+      MG_INFO(("bsr: 0x%x", bsr));
+      MG_INFO(("bcr: 0x%x", bcr));
   }
 
   // Link UP, 100BaseTX Full-duplex
@@ -404,7 +408,7 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
   }
   while (ENET->TDAR) {}
 
-  // FIXME PHY: Green light did'nt come up initially ?
+  // INFO PHY: Green light did'nt come up initially -> Can start/negociate 10M line
   static int i=0;
 
   MG_INFO(("Passing %d", i++));
