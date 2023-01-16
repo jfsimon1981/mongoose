@@ -268,22 +268,35 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
 
   MG_INFO(("Entered MG MIP driver: i.IMRT1020"));
 
-  // ENET Reset, wait complete
+  /*
+    ENET Reset, wait complete
+    If software reset (Register 0.15) is used to exit
+    power-down mode (Register 0.11 = 1), two
+    software reset writes (Register 0.15 = 1) are
+    required. The first write clears power-down
+    mode; the second write resets the chip and re-
+    latches the pin strapping pin values.
+  */
+
+  ENET->ECR |= BIT_SET(0);
+  while((ENET->ECR & BIT_SET(0)) != 0) {}
   ENET->ECR |= BIT_SET(0);
   while((ENET->ECR & BIT_SET(0)) != 0) {}
 
   MG_INFO(("Reset complete"));
 
   // Setup MII/RMII MDC clock divider (<= 2.5MHz).
-  ENET->MSCR = 0x118; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x18
+//  ENET->MSCR = 0x118; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x18
+  ENET->MSCR = 0x130; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x18
   eth_write_phy(PHY_ADDR, PHY_BCR, 0x8000); // PHY W @0x00 D=0x8000 Soft reset
-  eth_write_phy(PHY_ADDR, 0x1f, 0x8180);    // PHY W @0x1f D=0x8180 Ref clock 50 MHz at XI input
+  while (eth_read_phy(PHY_ADDR, PHY_BSR) & BIT_SET(15)) {delay(0x6000);} // Wait finished poll 10ms
 
   // PHY: Start Link
   {
-/*
-    while (eth_read_phy(PHY_ADDR, PHY_BSR) & BIT_SET(15)) {delay(0x6000);} // Wait finished poll 10ms
+    // Reset and set clock
     eth_write_phy(PHY_ADDR, PHY_BCR, 0x1200); // PHY W @0x00 D=0x1200 Autonego enable + start
+    eth_write_phy(PHY_ADDR, 0x1f, 0x8180);    // PHY W @0x1f D=0x8180 Ref clock 50 MHz at XI input
+    // Auto configuration
     {
       MG_INFO(("Wait for link up (Autoconf)"));
       uint32_t linkup = 0;
@@ -304,19 +317,16 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
         MG_INFO(("bsr: 0x%x", bsr));
         MG_INFO(("bcr: 0x%x", bcr));
     }
-*/
-    {
-      // PHY Configuration
-      uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
-      bcr &= BIT_CLEAR(12); // Autonegociation off
-      bcr &= BIT_CLEAR(10); // Isolation -> Normal
-      bcr &= BIT_CLEAR(13); // 10M Link speed
-      bcr |= BIT_CLEAR(8);  // Full-duplex
-      eth_write_phy(PHY_ADDR, PHY_BCR, bcr);
-    }
 
+    // PHY MII configuration
     {
-      MG_INFO(("Wait for link up (reconf 10M)"));
+      {
+        uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
+        bcr &= BIT_CLEAR(10); // Isolation -> Normal
+        eth_write_phy(PHY_ADDR, PHY_BCR, bcr);
+      }
+
+      MG_INFO(("Link configuration"));
       uint32_t linkup = 0;
       int linkup_tentatives = 5;
       while (!linkup && linkup_tentatives-- > 0) {
@@ -325,17 +335,21 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
       }
 
       if (!linkup) {
-        MG_ERROR(("Error: Link didn't come up"));
+        MG_ERROR(("Error: Link not ready"));
       }
       else {
-          MG_INFO(("Link up"));
+          MG_INFO(("Link ready"));
         }
         uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
         uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
         MG_INFO(("bsr: 0x%x", bsr));
         MG_INFO(("bcr: 0x%x", bcr));
+        // Show actual configuration
+        uint32_t phy_1e = eth_read_phy(PHY_ADDR, 0x1e);
+        uint32_t phy_1f = eth_read_phy(PHY_ADDR, 0x1f);
+        MG_INFO(("phy_1e: 0x%x", phy_1e));
+        MG_INFO(("phy_1f: 0x%x", phy_1f));
     }
-
   }
 
   // Link UP, 100BaseTX Full-duplex
