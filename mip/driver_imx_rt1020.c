@@ -157,6 +157,10 @@ static void *s_rxdata;                               // Recv callback data
   * application -> tx.ptr -> buffer pointed to by descriptor -> DMA -> wire
   */
 
+// ************* Prototypes *************
+// *** Utilities
+void clock_speed_test(void); // Clock speed test
+
 // ************* PHY *************
 
 enum { PHY_ADDR = 0x02, PHY_BCR = 0, PHY_BSR = 1 };     // PHY constants
@@ -285,18 +289,19 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
     int linkup_tentatives = 5;
     while (!linkup && linkup_tentatives-- > 0) {
       linkup = mip_driver_imx_rt1020_up(NULL);
-      delay(0x600000); // Approx 1s
-
-// Clock speed test
-/*
-while (1){
-delay(0x600000); // Approx 1s
-MG_INFO(("."));
-}*/
-
-      // if (!linkup) MG_INFO(("Driver: PHY down"));
-      // else MG_INFO(("Driver: PHY up"));
+      delay(0x500000); // Approx 1s
     }
+
+    {
+      // PHY Configuration
+      uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
+      bcr &= BIT_CLEAR(12); // Autonegociation off
+      bcr &= BIT_CLEAR(10); // Isolation -> Normal
+      bcr &= BIT_CLEAR(13); // 10M Link speed
+//    bcr &= BIT_CLEAR(8); // Half-duplex
+      eth_write_phy(PHY_ADDR, PHY_BCR, bcr);
+    }
+
     if (!linkup) {
       MG_ERROR(("Error: Link didn't come up"));
     }
@@ -469,7 +474,7 @@ static void mip_driver_imx_rt1020_setrx(void (*rx)(void *, size_t, void *),
   s_rxdata = rxdata;
 }
 
-// ************* Debug utilities *************
+// ************* Utilities *************
 
 // Utility to display Actual ENET registers content
 void display_registers() {
@@ -509,6 +514,13 @@ bool imx_rt1020_register_changed(void) {
   return 0;
 }
 
+// Clock speed test
+void clock_speed_test() {
+  while (1){
+    delay(0x500000); // Approx 1s
+    MG_INFO(("."));
+  }
+}
 
 // ************* API *************
 
