@@ -276,14 +276,14 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
 
   // Setup MII/RMII MDC clock divider (<= 2.5MHz).
   ENET->MSCR = 0x118; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x18
+  eth_write_phy(PHY_ADDR, PHY_BCR, 0x8000); // PHY W @0x00 D=0x8000 Soft reset
+  eth_write_phy(PHY_ADDR, 0x1f, 0x8180);    // PHY W @0x1f D=0x8180 Ref clock 50 MHz at XI input
 
   // PHY: Start Link
   {
-    eth_write_phy(PHY_ADDR, PHY_BCR, 0x8000); // PHY W @0x00 D=0x8000 Soft reset
+/*
     while (eth_read_phy(PHY_ADDR, PHY_BSR) & BIT_SET(15)) {delay(0x6000);} // Wait finished poll 10ms
     eth_write_phy(PHY_ADDR, PHY_BCR, 0x1200); // PHY W @0x00 D=0x1200 Autonego enable + start
-    eth_write_phy(PHY_ADDR, 0x1f, 0x8180);    // PHY W @0x1f D=0x8180 Ref clock 50 MHz at XI input
-
     {
       MG_INFO(("Wait for link up (Autoconf)"));
       uint32_t linkup = 0;
@@ -304,7 +304,7 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
         MG_INFO(("bsr: 0x%x", bsr));
         MG_INFO(("bcr: 0x%x", bcr));
     }
-
+*/
     {
       // PHY Configuration
       uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
