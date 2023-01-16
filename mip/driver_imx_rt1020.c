@@ -165,7 +165,8 @@ void delay(uint32_t);
 void delay (uint32_t di) {
   volatile int dno = 0; // Prevent optimization
   for (uint32_t i = 0; i < di; i++)
-    dno++;
+    for (int j=0; j<20; j++) // PLLx20 (500 MHz/24MHz)
+      dno++;
 }
 
 // ************* PHY read *************
@@ -285,6 +286,14 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
     while (!linkup && linkup_tentatives-- > 0) {
       linkup = mip_driver_imx_rt1020_up(NULL);
       delay(0x600000); // Approx 1s
+
+// Clock speed test
+/*
+while (1){
+delay(0x600000); // Approx 1s
+MG_INFO(("."));
+}*/
+
       // if (!linkup) MG_INFO(("Driver: PHY down"));
       // else MG_INFO(("Driver: PHY up"));
     }
