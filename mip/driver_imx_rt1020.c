@@ -421,6 +421,8 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
   // RX Descriptor activation
   ENET->RDAR = BIT_SET(24); // Activate Receive Descriptor
 
+  ENET->EIMR = 0xffffffff; // Enable all interrupts
+
   // MG_INFO(("ENET init OK"));
   // display_registers();
 
@@ -469,10 +471,19 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
 }
 
 // ************* RX IRQ *************
-void ETH_IRQHandler(void);
+// void ENET_IRQHandler(void);
 static uint32_t s_rxno;
 
-void ETH_IRQHandler(void) {
+void ENET_IRQHandler(void) {
+
+  // Read EIR
+  uint32_t eir = ENET->EIR;
+  // Display
+  MG_INFO(("irq: %x", eir));
+  // Clear
+  ENET->EIR = 0xffffffff; // Clear interrupts
+  return;
+
   MG_INFO(("irq:rx "));
   if (rx_buffer_descriptor[s_rxno].control & BIT_SET(15)) return;  // Empty? -> exit.
   // Read inframes
