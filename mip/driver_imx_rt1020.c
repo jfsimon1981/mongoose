@@ -289,7 +289,7 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
 //  ENET->MSCR = 0x118; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x18
   ENET->MSCR = 0x130; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x18
   eth_write_phy(PHY_ADDR, PHY_BCR, 0x8000); // PHY W @0x00 D=0x8000 Soft reset
-  while (eth_read_phy(PHY_ADDR, PHY_BSR) & BIT_SET(15)) {delay(0x6000);} // Wait finished poll 10ms
+  while (eth_read_phy(PHY_ADDR, PHY_BSR) & BIT_SET(15)) {delay(0x5000);} // Wait finished poll 10ms
 
   // PHY: Start Link
   {
@@ -431,7 +431,7 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
   return true;
 }
 
-// ************* TX *************
+// ************* IF TX *************
 
 // Transmit frame
 static uint32_t s_txno;
@@ -460,7 +460,17 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
                 // exception" return might vector to incorrect interrupt.
     if (++s_txno >= ENET_TXBD_NUM) s_txno = 0;
   }
-  while (ENET->TDAR) {}
+  while (ENET->TDAR) {
+/**/
+//  Test interrupt handler is indeed called
+//  delay(0x500000); // Approx 1s
+    delay(0x5000000); // Approx 16s
+    static cnt = 0;
+    MG_INFO(("cnt == %d", cnt++));
+    eth_write_phy(PHY_ADDR, 0x1f, 0x8180); // Dummy write to trigger an interrupt
+    eth_read_phy(PHY_ADDR, PHY_BSR);
+/**/
+  }
 
   // INFO PHY: Green light did'nt come up initially -> Can start/negociate 10M line
   static int i=0;
@@ -470,8 +480,9 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
   return len;
 }
 
-// ************* RX IRQ *************
-// void ENET_IRQHandler(void);
+// ************* RX *************
+
+void ENET_IRQHandler(void);
 static uint32_t s_rxno;
 
 void ENET_IRQHandler(void) {
@@ -479,7 +490,7 @@ void ENET_IRQHandler(void) {
   // Read EIR
   uint32_t eir = ENET->EIR;
   // Display
-  MG_INFO(("irq: %x", eir));
+  MG_INFO(("irq: 0x%x", eir));
   // Clear
   ENET->EIR = 0xffffffff; // Clear interrupts
   return;
@@ -500,7 +511,7 @@ void ENET_IRQHandler(void) {
   }
 }
 
-// ************* UP *************
+// ************* IF Up *************
 // >> Implementation OK
 
 // Up/down status
@@ -511,7 +522,7 @@ static bool mip_driver_imx_rt1020_up(void *userdata) {
   return bsr & BIT_SET(2) ? 1 : 0;
 }
 
-// ************* Set RX *************
+// ************* Set RX CB *************
 // Migration? _setrx() -> _mip_rxcb()
 // >> Temporary: setrx -> rx (polling)
 // >> TODO IRQ interrupt driven
