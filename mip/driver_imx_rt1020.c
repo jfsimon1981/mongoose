@@ -10,6 +10,11 @@ Check Constraints for MDC:
 */
 
 /*
+  Clock pins OK: RMII / 50MHz: ENET_TX_CLK at PHY:XI
+  TXEN: route OK.
+*/
+
+/*
 References
   SDK
     ENET_SetMacController()
