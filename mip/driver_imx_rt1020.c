@@ -339,14 +339,17 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
       }
       else {
           MG_INFO(("Link ready"));
+eth_write_phy(PHY_ADDR, 0x1b, 0xff00); // Test enable interrupts
         }
         uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
         uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
         MG_INFO(("bsr: 0x%x", bsr));
         MG_INFO(("bcr: 0x%x", bcr));
         // Show actual configuration
+        uint32_t phy_1b = eth_read_phy(PHY_ADDR, 0x1b);
         uint32_t phy_1e = eth_read_phy(PHY_ADDR, 0x1e);
         uint32_t phy_1f = eth_read_phy(PHY_ADDR, 0x1f);
+        MG_INFO(("phy_1b: 0x%x", phy_1b));
         MG_INFO(("phy_1e: 0x%x", phy_1e));
         MG_INFO(("phy_1f: 0x%x", phy_1f));
     }
@@ -463,12 +466,21 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
   while (ENET->TDAR) {
 /**/
 //  Test interrupt handler is indeed called
+    delay(0x300000); // Approx 600ms
 //  delay(0x500000); // Approx 1s
-    delay(0x5000000); // Approx 16s
+//  delay(0x5000000); // Approx 16s
     static cnt = 0;
     MG_INFO(("cnt == %d", cnt++));
+    //
     eth_write_phy(PHY_ADDR, 0x1f, 0x8180); // Dummy write to trigger an interrupt
     eth_read_phy(PHY_ADDR, PHY_BSR);
+    //
+    uint32_t phy_1b = eth_read_phy(PHY_ADDR, 0x1b);
+    uint32_t phy_1e = eth_read_phy(PHY_ADDR, 0x1e);
+    uint32_t phy_1f = eth_read_phy(PHY_ADDR, 0x1f);
+    MG_INFO(("phy_1b: 0x%x", phy_1b));
+    MG_INFO(("phy_1e: 0x%x", phy_1e));
+    MG_INFO(("phy_1f: 0x%x", phy_1f));
 /**/
   }
 
