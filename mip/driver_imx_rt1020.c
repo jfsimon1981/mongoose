@@ -10,9 +10,11 @@ Check Constraints for MDC:
 */
 
 /*
-OK
-  Clock pins OK: RMII / 50MHz: ENET_TX_CLK at PHY:XI
-  TXEN: route OK.
+Measurements (scope)
+  PHY
+    Clock pins OK: RMII / 50MHz: ENET_TX_CLK at PHY:XI
+    TXEN: route OK.
+    TXD0: Signal OK.
 */
 
 /*
@@ -278,7 +280,6 @@ static bool mip_driver_imx_rt1020_up(void *userdata);
 // Initialise driver
 // Driver name: imx_rt1020
 static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
-
   /*
    * TODO
    * Prevent program halt if user's clocks misconfiguration:
