@@ -14,7 +14,7 @@ Measurements (scope)
   PHY
     Clock pins OK: RMII / 50MHz: ENET_TX_CLK at PHY:XI
     TXEN: route OK.
-    TXD0: Signal OK.
+    RXD0: Signal OK.
 */
 
 /*
