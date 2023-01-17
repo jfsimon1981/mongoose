@@ -10,8 +10,14 @@ Check Constraints for MDC:
 */
 
 /*
+OK
   Clock pins OK: RMII / 50MHz: ENET_TX_CLK at PHY:XI
   TXEN: route OK.
+*/
+
+/*
+FIXME
+Trace back TP15 silent with MIP (should rcv outputs at DHCP requests).
 */
 
 /*
