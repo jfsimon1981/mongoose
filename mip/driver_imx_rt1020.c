@@ -2,6 +2,21 @@
 // Functions: TX, RX, IRQ
 // Migrate to full descriptor so we can check frame status, errors, ...
 
+/*
+TODO
+Check Constraints for MDC:
+  Frequency <= 2.5 MHz
+  Holdtime  >=  10 ns
+*/
+
+/*
+References
+  SDK
+    ENET_SetMacController()
+    CLOCK_EnableClock(s_enetClock[instance]);
+kCLOCK_Enet     = (1U << 8U) | CCM_CCGR1_CG5_SHIFT,  /*!< CCGR1, CG5   */
+*/
+
 #include "mip.h"
 
 #if MG_ENABLE_MIP && defined(MG_ENABLE_DRIVER_IMXRT1020)
@@ -466,21 +481,24 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
   while (ENET->TDAR) {
 /**/
 //  Test interrupt handler is indeed called
-    delay(0x300000); // Approx 600ms
+//  delay(0x100000); // Approx 200ms
+//  delay(0x300000); // Approx 600ms
 //  delay(0x500000); // Approx 1s
+    delay(0xa00000); // Approx 2s
 //  delay(0x5000000); // Approx 16s
     static cnt = 0;
     MG_INFO(("cnt == %d", cnt++));
     //
-    eth_write_phy(PHY_ADDR, 0x1f, 0x8180); // Dummy write to trigger an interrupt
-    eth_read_phy(PHY_ADDR, PHY_BSR);
-    //
+//  eth_write_phy(PHY_ADDR, 0x1f, 0x8180); // Dummy write to trigger an interrupt
+//  eth_read_phy(PHY_ADDR, PHY_BSR);
+/*
     uint32_t phy_1b = eth_read_phy(PHY_ADDR, 0x1b);
     uint32_t phy_1e = eth_read_phy(PHY_ADDR, 0x1e);
     uint32_t phy_1f = eth_read_phy(PHY_ADDR, 0x1f);
     MG_INFO(("phy_1b: 0x%x", phy_1b));
     MG_INFO(("phy_1e: 0x%x", phy_1e));
     MG_INFO(("phy_1f: 0x%x", phy_1f));
+*/
 /**/
   }
 
