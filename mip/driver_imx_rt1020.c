@@ -13,8 +13,7 @@ Check Constraints for MDC:
 References
   SDK
     ENET_SetMacController()
-    CLOCK_EnableClock(s_enetClock[instance]);
-kCLOCK_Enet     = (1U << 8U) | CCM_CCGR1_CG5_SHIFT,  /*!< CCGR1, CG5   */
+    CLOCK_EnableClock(); // ENET: CCGR1:CG5 (CCM_CCGR1_CG5_SHIFT)
 */
 
 #include "mip.h"
