@@ -17,18 +17,6 @@ Measurements (scope)
     RXD0: Signal OK.
 */
 
-/*
-FIXME
-Trace back TP15 silent with MIP (should rcv outputs at DHCP requests).
-*/
-
-/*
-References
-  SDK
-    ENET_SetMacController()
-    CLOCK_EnableClock(); // ENET: CCGR1:CG5 (CCM_CCGR1_CG5_SHIFT)
-*/
-
 #include "mip.h"
 
 #if MG_ENABLE_MIP && defined(MG_ENABLE_DRIVER_IMXRT1020)
