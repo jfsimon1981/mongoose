@@ -200,6 +200,13 @@ void delay (uint32_t di) {
       dno++;
 }
 
+void wait_phy_complete(void);
+void wait_phy_complete(void) {
+  while (!(ENET->EIR & BIT_SET(23)));
+  ENET->EIR |= BIT_SET(23); // MII interrupt clear
+  delay (0x00010000); // Safety
+}
+
 // ************* PHY read *************
 
 static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
@@ -213,11 +220,9 @@ static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
                   | (0x2 << 16);
 
   //MG_INFO(("phy_transaction %x", phy_transaction));
+  ENET->EIR |= BIT_SET(23); // MII interrupt clear
   ENET->MMFR = phy_transaction;
-
-  //Wait for the read to complete
-  delay (0x00010000); // TODO Delay in a more general way (based on relevant clock build conf)
-  // while ((ENET->EIR & BIT_SET(23)) != 0) {}
+  wait_phy_complete();
 
   // volatile uint32_t phy_read_out = ENET->MMFR;
   //MG_INFO(("phy_read_out 0x%x", phy_read_out));
@@ -240,8 +245,9 @@ static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
                   | (uint32_t)(reg  << 18) \
                   | (uint32_t)(0x2 << 16) \
                   | (uint32_t)(val);
+  ENET->EIR |= BIT_SET(23); // MII interrupt clear
   ENET->MMFR = phy_transaction;
-  delay (0x00010000); // TODO Delay in a more general way (based on relevant clock build conf)
+  wait_phy_complete();
 }
 
 // ************* Global *************
