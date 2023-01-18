@@ -203,6 +203,7 @@ void delay (uint32_t di) {
 // ************* PHY read *************
 
 static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
+//  MG_INFO(("eth_read_phy()"));
   uint32_t mask_phy_adr_reg = 0x1f; // 0b00011111: Ensure we write 5 bits (Phy address & register)
   uint32_t phy_transaction = 0x00;
   phy_transaction = (0x1 << 30) \
@@ -215,7 +216,7 @@ static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
   ENET->MMFR = phy_transaction;
 
   //Wait for the read to complete
-  delay (0x00000500);
+  delay (0x00010000); // TODO Delay in a more general way (based on relevant clock build conf)
   // while ((ENET->EIR & BIT_SET(23)) != 0) {}
 
   // volatile uint32_t phy_read_out = ENET->MMFR;
@@ -226,8 +227,9 @@ static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
 // ************* PHY write *************
 
 static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
+//  MG_INFO(("eth_write_phy()"));
   uint8_t mask_phy_adr_reg = 0x1f; // 0b00011111: Ensure we write 5 bits (Phy address & register)
-  uint32_t mask_phy_data = 0x0000ffff; // Ensure we write 5 bits (Phy address & register)
+  uint32_t mask_phy_data = 0x0000ffff; // Ensure we write 16 bits (data)
   addr &= mask_phy_adr_reg;
   reg &= mask_phy_adr_reg;
   val &= mask_phy_data;
@@ -239,6 +241,7 @@ static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
                   | (uint32_t)(0x2 << 16) \
                   | (uint32_t)(val);
   ENET->MMFR = phy_transaction;
+  delay (0x00010000); // TODO Delay in a more general way (based on relevant clock build conf)
 }
 
 // ************* Global *************
@@ -365,19 +368,55 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
       }
       else {
           MG_INFO(("Link ready"));
-eth_write_phy(PHY_ADDR, 0x1b, 0xff00); // Test enable interrupts
+
+
+      // PHY INTR
+      {
+        /*
+          15 jabber
+          14 receive error
+          13 page received
+          12 parallel detect fault
+          11 link partner acknowledge
+          10 link-down
+          9 remote fault
+          8 link-up
+        */
+        //eth_write_phy(PHY_ADDR, 0x1b, 0xff00); // Test enable all interrupts
+        // uint16_t phy_intr_filter = 0;
+        // phy_intr_filter |= 1<<14; // Error many rcvd ?
+        // phy_intr_filter |= 1<<14; // Up
+        // eth_write_phy(PHY_ADDR, 0x1b, 0x00);   
+
+        /*
+          Can't get a filter properly ?
+          Check & assert we can filter through required INT mask.
+          This may be the sign there's a fault in the Write_Phy function.
+          Update:
+          Even a read at 1B will trigger many intrp.
+        */
+
+        if (1) {
+          uint32_t rd=eth_read_phy(PHY_ADDR, 0x1b);
+          MG_INFO(("PHY read: 0x%x", rd));
         }
-        uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
-        uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
-        MG_INFO(("bsr: 0x%x", bsr));
-        MG_INFO(("bcr: 0x%x", bcr));
-        // Show actual configuration
-        uint32_t phy_1b = eth_read_phy(PHY_ADDR, 0x1b);
-        uint32_t phy_1e = eth_read_phy(PHY_ADDR, 0x1e);
-        uint32_t phy_1f = eth_read_phy(PHY_ADDR, 0x1f);
-        MG_INFO(("phy_1b: 0x%x", phy_1b));
-        MG_INFO(("phy_1e: 0x%x", phy_1e));
-        MG_INFO(("phy_1f: 0x%x", phy_1f));
+
+      }
+
+// got: solve the phy rd / set INTR reg.
+
+      }
+      uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
+      uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
+      MG_INFO(("bsr: 0x%x", bsr));
+      MG_INFO(("bcr: 0x%x", bcr));
+      // Show actual configuration
+      uint32_t phy_1b = eth_read_phy(PHY_ADDR, 0x1b);
+      uint32_t phy_1e = eth_read_phy(PHY_ADDR, 0x1e);
+      uint32_t phy_1f = eth_read_phy(PHY_ADDR, 0x1f);
+      MG_INFO(("phy_1b: 0x%x", phy_1b));
+      MG_INFO(("phy_1e: 0x%x", phy_1e));
+      MG_INFO(("phy_1f: 0x%x", phy_1f));
     }
   }
 
@@ -619,7 +658,7 @@ bool imx_rt1020_register_changed(void) {
 void clock_speed_test() {
   while (1){
     delay(0x500000); // Approx 1s
-    MG_INFO(("."));
+    MG_INFO(("c"));
   }
 }
 
