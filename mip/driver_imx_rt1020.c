@@ -203,7 +203,7 @@ void delay (uint32_t di) {
 // ************* PHY read *************
 
 static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
-//  MG_INFO(("eth_read_phy()"));
+  MG_INFO(("eth_read_phy()"));
   uint32_t mask_phy_adr_reg = 0x1f; // 0b00011111: Ensure we write 5 bits (Phy address & register)
   uint32_t phy_transaction = 0x00;
   phy_transaction = (0x1 << 30) \
@@ -227,7 +227,7 @@ static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
 // ************* PHY write *************
 
 static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
-//  MG_INFO(("eth_write_phy()"));
+  MG_INFO(("eth_write_phy()"));
   uint8_t mask_phy_adr_reg = 0x1f; // 0b00011111: Ensure we write 5 bits (Phy address & register)
   uint32_t mask_phy_data = 0x0000ffff; // Ensure we write 16 bits (data)
   addr &= mask_phy_adr_reg;
