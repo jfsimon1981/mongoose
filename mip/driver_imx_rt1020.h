@@ -1,8 +1,3 @@
-//B (for dev)
-#define MG_ENABLE_MIP 1
-#define MG_ENABLE_DRIVER_IMXRT1020
-//E
-
 #pragma once
 struct mip_driver_imx_rt1020_data {
   // MDC clock divider. MDC clock is derived from IPS Bus clock (ipg_clk),

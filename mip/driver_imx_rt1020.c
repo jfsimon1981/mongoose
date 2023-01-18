@@ -202,13 +202,11 @@ void delay (uint32_t di) {
 
 void wait_phy_complete(void);
 void wait_phy_complete(void) {
-  const uint32_t delay_min = 0x00010000;
+  delay(0x00010000);
   const uint32_t delay_max = 0x00100000;
   uint32_t delay_cnt = 0;
-  while (!(ENET->EIR & BIT_SET(23)) && \
-        (delay_cnt > delay_min) && (delay_cnt < delay_max))
+  while (!(ENET->EIR & BIT_SET(23)) && (delay_cnt < delay_max))
   {delay_cnt++;}
-
   ENET->EIR |= BIT_SET(23); // MII interrupt clear
 }
 
@@ -334,6 +332,9 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
     // Reset and set clock
     eth_write_phy(PHY_ADDR, PHY_BCR, 0x1200); // PHY W @0x00 D=0x1200 Autonego enable + start
     eth_write_phy(PHY_ADDR, 0x1f, 0x8180);    // PHY W @0x1f D=0x8180 Ref clock 50 MHz at XI input
+
+// while(1); // Wait for Linkup // Linkup works
+
     // Auto configuration
     {
       MG_INFO(("Wait for link up (Autoconf)"));
@@ -343,6 +344,8 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
         linkup = mip_driver_imx_rt1020_up(NULL);
         delay(0x500000); // Approx 1s
       }
+
+// while(1); // Wait for Linkup // Linkup works
 
       if (!linkup) {
         MG_ERROR(("Error: Link didn't come up"));
@@ -356,6 +359,8 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
         MG_INFO(("bcr: 0x%x", bcr));
     }
 
+// while(1); // Wait for Linkup // Works
+
     // PHY MII configuration
     {
       {
@@ -368,6 +373,7 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
       uint32_t linkup = 0;
       int linkup_tentatives = 5;
       while (!linkup && linkup_tentatives-- > 0) {
+        MG_INFO(("Up ?"));
         linkup = mip_driver_imx_rt1020_up(NULL);
         delay(0x500000); // Approx 1s
       }
@@ -404,12 +410,12 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
           Update:
           Even a read at 1B will trigger many intrp.
         */
-
+/*
         if (1) {
           uint32_t rd=eth_read_phy(PHY_ADDR, 0x1b);
           MG_INFO(("PHY read: 0x%x", rd));
         }
-
+*/
       }
 
 // got: solve the phy rd / set INTR reg.
@@ -683,3 +689,34 @@ struct mip_driver mip_driver_imx_rt1020 = {
 // *************  *************
 
 #endif
+
+// TODO Work in progress:
+// Functions: TX, RX, IRQ
+// Migrate to full descriptor so we can check frame status, errors, ...
+
+/*
+TODO
+Check Constraints for MDC:
+  Frequency <= 2.5 MHz
+  Holdtime  >=  10 ns
+*/
+
+/*
+Measurements (scope)
+  PHY
+    Clock pins OK: RMII / 50MHz: ENET_TX_CLK at PHY:XI
+    TXEN: route OK.
+    RXD0: Signal OK.
+*/
+
+/*
+FIXME
+Trace back TP15 silent with MIP (should rcv outputs at DHCP requests).
+*/
+
+/*
+References
+  SDK
+    ENET_SetMacController()
+    CLOCK_EnableClock(); // ENET: CCGR1:CG5 (CCM_CCGR1_CG5_SHIFT)
+*/
