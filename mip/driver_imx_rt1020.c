@@ -286,7 +286,7 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
    * At the moment, done at main program level.
    */
 
-  MG_INFO(("Entered MG MIP driver: i.IMRT1020"));
+  MG_INFO(("Entered MG MIP driver: i.MX RT1020"));
 
   /*
     ENET Reset, wait complete
@@ -357,7 +357,6 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
       uint32_t linkup = 0;
       int linkup_tentatives = 5;
       while (!linkup && linkup_tentatives-- > 0) {
-        MG_INFO(("Up ?"));
         linkup = mip_driver_imx_rt1020_up(NULL);
         delay(0x500000); // Approx 1s
       }
@@ -504,6 +503,7 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
 static uint32_t s_txno;
 
 static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userdata) {
+  // MG_INFO((">>> TX !!!!!!!!"));
 
   if (len > sizeof(tx_data_buffer[ENET_TXBD_NUM])) {
 //  MG_ERROR(("Frame too big, %ld", (long) len));
@@ -527,34 +527,11 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
                 // exception" return might vector to incorrect interrupt.
     if (++s_txno >= ENET_TXBD_NUM) s_txno = 0;
   }
-  while (ENET->TDAR) {
-/**/
-//  Test interrupt handler is indeed called
-//  delay(0x100000); // Approx 200ms
-//  delay(0x300000); // Approx 600ms
-//  delay(0x500000); // Approx 1s
-    delay(0xa00000); // Approx 2s
-//  delay(0x5000000); // Approx 16s
-    static cnt = 0;
-    MG_INFO(("cnt == %d", cnt++));
-    //
-//  eth_write_phy(PHY_ADDR, 0x1f, 0x8180); // Dummy write to trigger an interrupt
-//  eth_read_phy(PHY_ADDR, PHY_BSR);
-/*
-    uint32_t phy_1b = eth_read_phy(PHY_ADDR, 0x1b);
-    uint32_t phy_1e = eth_read_phy(PHY_ADDR, 0x1e);
-    uint32_t phy_1f = eth_read_phy(PHY_ADDR, 0x1f);
-    MG_INFO(("phy_1b: 0x%x", phy_1b));
-    MG_INFO(("phy_1e: 0x%x", phy_1e));
-    MG_INFO(("phy_1f: 0x%x", phy_1f));
-*/
-/**/
-  }
 
   // INFO PHY: Green light did'nt come up initially -> Can start/negociate 10M line
   static int i=0;
 
-  MG_INFO(("Passing %d", i++));
+  // MG_INFO(("TX -> passing %d", i++));
   /*(void) buf, (void) len,*/ (void) userdata;
   return len;
 }
@@ -569,12 +546,14 @@ void ENET_IRQHandler(void) {
   // Read EIR
   uint32_t eir = ENET->EIR;
   // Display
-  MG_INFO(("irq: 0x%x", eir));
-  // Clear
-  ENET->EIR = 0xffffffff; // Clear interrupts
-  return;
+  if (eir == 0x800000) {
+    ENET->EIR = 0xffffffff; // Clear interrupts
+    return; // PHY access int.
+  }
+  else {
+    MG_INFO(("irq(rx): 0x%x", eir)); // Debug infos
+  }
 
-  MG_INFO(("irq:rx "));
   if (rx_buffer_descriptor[s_rxno].control & BIT_SET(15)) return;  // Empty? -> exit.
   // Read inframes
   else { // Frame received, loop
@@ -588,6 +567,8 @@ void ENET_IRQHandler(void) {
       if (++s_rxno >= ENET_RXBD_NUM) s_rxno = 0;
     }
   }
+
+  ENET->EIR = 0xffffffff; // Clear interrupts
 }
 
 // ************* IF Up *************
@@ -595,6 +576,7 @@ void ENET_IRQHandler(void) {
 
 // Up/down status
 static bool mip_driver_imx_rt1020_up(void *userdata) {
+  // MG_INFO(("Link up ?"));
   uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
 
   (void) userdata;
