@@ -1,7 +1,3 @@
-// TODO Work in progress:
-// Functions: TX, RX, IRQ
-// Migrate to full descriptor so we can check frame status, errors, ...
-
 /*
 TODO
 Check Constraints for MDC:
