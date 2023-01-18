@@ -202,15 +202,20 @@ void delay (uint32_t di) {
 
 void wait_phy_complete(void);
 void wait_phy_complete(void) {
-  while (!(ENET->EIR & BIT_SET(23)));
+  const uint32_t delay_min = 0x00010000;
+  const uint32_t delay_max = 0x00100000;
+  uint32_t delay_cnt = 0;
+  while (!(ENET->EIR & BIT_SET(23)) && \
+        (delay_cnt > delay_min) && (delay_cnt < delay_max))
+  {delay_cnt++;}
+
   ENET->EIR |= BIT_SET(23); // MII interrupt clear
-  delay (0x00010000); // Safety
 }
 
 // ************* PHY read *************
 
 static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
-  MG_INFO(("eth_read_phy()"));
+  ENET->EIR |= BIT_SET(23); // MII interrupt clear
   uint32_t mask_phy_adr_reg = 0x1f; // 0b00011111: Ensure we write 5 bits (Phy address & register)
   uint32_t phy_transaction = 0x00;
   phy_transaction = (0x1 << 30) \
@@ -220,7 +225,6 @@ static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
                   | (0x2 << 16);
 
   //MG_INFO(("phy_transaction %x", phy_transaction));
-  ENET->EIR |= BIT_SET(23); // MII interrupt clear
   ENET->MMFR = phy_transaction;
   wait_phy_complete();
 
@@ -232,7 +236,7 @@ static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
 // ************* PHY write *************
 
 static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
-  MG_INFO(("eth_write_phy()"));
+  ENET->EIR |= BIT_SET(23); // MII interrupt clear
   uint8_t mask_phy_adr_reg = 0x1f; // 0b00011111: Ensure we write 5 bits (Phy address & register)
   uint32_t mask_phy_data = 0x0000ffff; // Ensure we write 16 bits (data)
   addr &= mask_phy_adr_reg;
@@ -245,7 +249,6 @@ static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
                   | (uint32_t)(reg  << 18) \
                   | (uint32_t)(0x2 << 16) \
                   | (uint32_t)(val);
-  ENET->EIR |= BIT_SET(23); // MII interrupt clear
   ENET->MMFR = phy_transaction;
   wait_phy_complete();
 }
