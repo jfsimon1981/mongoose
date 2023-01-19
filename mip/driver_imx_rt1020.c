@@ -1,18 +1,3 @@
-/*
-TODO
-Check Constraints for MDC:
-  Frequency <= 2.5 MHz
-  Holdtime  >=  10 ns
-*/
-
-/*
-Measurements (scope)
-  PHY
-    Clock pins OK: RMII / 50MHz: ENET_TX_CLK at PHY:XI
-    TXEN: route OK.
-    RXD0: Signal OK.
-*/
-
 #include "mip.h"
 
 #if MG_ENABLE_MIP && defined(MG_ENABLE_DRIVER_IMXRT1020)
@@ -158,21 +143,13 @@ volatile uint32_t TCSR3;              // 0x620
 
 static void (*s_rx)(void *, size_t, void *);         // Recv callback
 static void *s_rxdata;                               // Recv callback data
+static void mip_driver_imx_rt1020_setrx(void (*rx)(void *, size_t, void *), void *);
+static size_t mip_driver_imx_rt1020_tx(const void *, size_t , void *);
+static bool mip_driver_imx_rt1020_up(void *);
 
- // 1522: max size without preamble nor gap
- // but CRC and possible 802.1Q (VLAN) tag 
-
- /*
-  * Data path
-  * DMA -> buffer pointed to by descriptor -> IRQ -> queue -> rx.ptr -> process
-  * application -> tx.ptr -> buffer pointed to by descriptor -> DMA -> wire
-  */
-
-// ************* Prototypes *************
-// *** Utilities
-void clock_speed_test(void); // Clock speed test
-
-// ************* PHY *************
+void ETH_IRQHandler(void);
+static bool mip_driver_imx_rt1020_init(uint8_t *, void *);
+void wait_phy_complete(void);
 
 enum { PHY_ADDR = 0x02, PHY_BCR = 0, PHY_BSR = 1 };     // PHY constants
 
@@ -184,7 +161,6 @@ void delay (uint32_t di) {
       dno++;
 }
 
-void wait_phy_complete(void);
 void wait_phy_complete(void) {
   delay(0x00010000);
   const uint32_t delay_max = 0x00100000;
@@ -193,8 +169,6 @@ void wait_phy_complete(void) {
   {delay_cnt++;}
   ENET->EIR |= BIT_SET(23); // MII interrupt clear
 }
-
-// ************* PHY read *************
 
 static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
   ENET->EIR |= BIT_SET(23); // MII interrupt clear
@@ -215,8 +189,6 @@ static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
   return (ENET->MMFR & 0x0000ffff);
 }
 
-// ************* PHY write *************
-
 static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
   ENET->EIR |= BIT_SET(23); // MII interrupt clear
   uint8_t mask_phy_adr_reg = 0x1f; // 0b00011111: Ensure we write 5 bits (Phy address & register)
@@ -235,8 +207,6 @@ static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
   wait_phy_complete();
 }
 
-// ************* Global *************
-
 // FEC RX/TX descriptors (Enhanced descriptor not enabled)
 // Descriptor buffer structure, little endian
 
@@ -244,8 +214,10 @@ typedef struct enet_bd_struct_def
 {
     uint16_t length;  // Data length
     uint16_t control; // Control and status
-    uint32_t *buffer; // Data ptr
+    uint32_t *buffer;  // Data ptr
 } enet_bd_struct_t;
+
+// Descriptor and buffer globals, in non-cached area, 64 bits aligned.
 
 __attribute__((section("NonCacheable,\"aw\",%nobits @"))) enet_bd_struct_t rx_buffer_descriptor[(ENET_RXBD_NUM)] __attribute__((aligned((64U))));
 __attribute__((section("NonCacheable,\"aw\",%nobits @"))) enet_bd_struct_t tx_buffer_descriptor[(ENET_TXBD_NUM)] __attribute__((aligned((64U))));
@@ -253,75 +225,29 @@ __attribute__((section("NonCacheable,\"aw\",%nobits @"))) enet_bd_struct_t tx_bu
 uint8_t rx_data_buffer[(ENET_RXBD_NUM)][((unsigned int)(((ENET_RXBUFF_SIZE)) + (((64U))-1U)) & (unsigned int)(~(unsigned int)(((64U))-1U)))] __attribute__((aligned((64U))));
 uint8_t tx_data_buffer[(ENET_TXBD_NUM)][((unsigned int)(((ENET_TXBUFF_SIZE)) + (((64U))-1U)) & (unsigned int)(~(unsigned int)(((64U))-1U)))] __attribute__((aligned((64U))));
 
-// Unused vars
-void unused(void);
-void unused() {
-/*
-  (void)s_rxdesc;
-  (void)s_txdesc;
-  (void)s_rxbuf;
-  (void)s_txbuf;
-  (*s_rx)((void *)0, (size_t)0, (void *)0);
-  (void)s_rxdata;
-*/
-}
+// Initialise driver imx_rt1020
 
-void display_registers(void);
-static bool mip_driver_imx_rt1020_up(void *userdata);
-
-// ************* Initialization *************
-
-// Initialise driver
-// Driver name: imx_rt1020
 static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
-  /*
-   * TODO
-   * Prevent program halt if user's clocks misconfiguration:
-   * Before ENET register access attempt, check Clock state
-   * - ENET PLL: 500 MHz
-   * - PLL6_BYPASS: source from ENET PLL
-   * Check ENET Clock (CCM CCGR1 CG5)
-   * Enable if necessary
-   * Print msg about clock configuration
-   * At the moment, done at main program level.
-   */
-
-  MG_INFO(("Entered MG MIP driver: i.MX RT1020"));
-
-  /*
-    ENET Reset, wait complete
-    If software reset (Register 0.15) is used to exit
-    power-down mode (Register 0.11 = 1), two
-    software reset writes (Register 0.15 = 1) are
-    required. The first write clears power-down
-    mode; the second write resets the chip and re-
-    latches the pin strapping pin values.
-  */
-
-  ENET->ECR |= BIT_SET(0);
-  while((ENET->ECR & BIT_SET(0)) != 0) {}
+  // ENET Reset, wait complete
   ENET->ECR |= BIT_SET(0);
   while((ENET->ECR & BIT_SET(0)) != 0) {}
 
-  MG_INFO(("Reset complete"));
+  // Re-latches the pin strapping pin values
+  ENET->ECR |= BIT_SET(0);
+  while((ENET->ECR & BIT_SET(0)) != 0) {}
 
   // Setup MII/RMII MDC clock divider (<= 2.5MHz).
-//  ENET->MSCR = 0x118; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x18
   ENET->MSCR = 0x130; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x30
   eth_write_phy(PHY_ADDR, PHY_BCR, 0x8000); // PHY W @0x00 D=0x8000 Soft reset
   while (eth_read_phy(PHY_ADDR, PHY_BSR) & BIT_SET(15)) {delay(0x5000);} // Wait finished poll 10ms
 
   // PHY: Start Link
   {
-    // Reset and set clock
     eth_write_phy(PHY_ADDR, PHY_BCR, 0x1200); // PHY W @0x00 D=0x1200 Autonego enable + start
     eth_write_phy(PHY_ADDR, 0x1f, 0x8180);    // PHY W @0x1f D=0x8180 Ref clock 50 MHz at XI input
 
-// while(1); // Wait for Linkup // Linkup works
-
     // Auto configuration
     {
-      MG_INFO(("Wait for link up (Autoconf)"));
       uint32_t linkup = 0;
       int linkup_tentatives = 5;
       while (!linkup && linkup_tentatives-- > 0) {
@@ -329,31 +255,20 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
         delay(0x500000); // Approx 1s
       }
 
-// while(1); // Wait for Linkup // Linkup works
-
       if (!linkup) {
         MG_ERROR(("Error: Link didn't come up"));
       }
       else {
-          MG_INFO(("Link up"));
-        }
-        uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
-        uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
-        MG_INFO(("bsr: 0x%x", bsr));
-        MG_INFO(("bcr: 0x%x", bcr));
+        MG_INFO(("Link up"));
+      }
     }
-
-// while(1); // Wait for Linkup // Works
 
     // PHY MII configuration
     {
-      {
-        uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
-        bcr &= BIT_CLEAR(10); // Isolation -> Normal
-        eth_write_phy(PHY_ADDR, PHY_BCR, bcr);
-      }
+      uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
+      bcr &= BIT_CLEAR(10); // Isolation -> Normal
+      eth_write_phy(PHY_ADDR, PHY_BCR, bcr);
 
-      MG_INFO(("Link configuration"));
       uint32_t linkup = 0;
       int linkup_tentatives = 5;
       while (!linkup && linkup_tentatives-- > 0) {
@@ -365,61 +280,10 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
         MG_ERROR(("Error: Link not ready"));
       }
       else {
-          MG_INFO(("Link ready"));
-
-
-      // PHY INTR
-      {
-        /*
-          15 jabber
-          14 receive error
-          13 page received
-          12 parallel detect fault
-          11 link partner acknowledge
-          10 link-down
-          9 remote fault
-          8 link-up
-        */
-        //eth_write_phy(PHY_ADDR, 0x1b, 0xff00); // Test enable all interrupts
-        // uint16_t phy_intr_filter = 0;
-        // phy_intr_filter |= 1<<14; // Error many rcvd ?
-        // phy_intr_filter |= 1<<14; // Up
-        // eth_write_phy(PHY_ADDR, 0x1b, 0x00);   
-
-        /*
-          Can't get a filter properly ?
-          Check & assert we can filter through required INT mask.
-          This may be the sign there's a fault in the Write_Phy function.
-          Update:
-          Even a read at 1B will trigger many intrp.
-        */
-/*
-        if (1) {
-          uint32_t rd=eth_read_phy(PHY_ADDR, 0x1b);
-          MG_INFO(("PHY read: 0x%x", rd));
-        }
-*/
+        MG_INFO(("Link ready"));
       }
-
-// got: solve the phy rd / set INTR reg.
-
-      }
-      uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
-      uint32_t bcr = eth_read_phy(PHY_ADDR, PHY_BCR);
-      MG_INFO(("bsr: 0x%x", bsr));
-      MG_INFO(("bcr: 0x%x", bcr));
-      // Show actual configuration
-      uint32_t phy_1b = eth_read_phy(PHY_ADDR, 0x1b);
-      uint32_t phy_1e = eth_read_phy(PHY_ADDR, 0x1e);
-      uint32_t phy_1f = eth_read_phy(PHY_ADDR, 0x1f);
-      MG_INFO(("phy_1b: 0x%x", phy_1b));
-      MG_INFO(("phy_1e: 0x%x", phy_1e));
-      MG_INFO(("phy_1f: 0x%x", phy_1f));
     }
   }
-
-  // Link UP, 100BaseTX Full-duplex
-  MG_INFO(("PHY init OK"));
 
   // Disable ENET
   ENET->ECR = 0x0; //  Disable before configuration
@@ -428,47 +292,29 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
   ENET->RCR = 0x05ee4104; // CRCFWD=1 (CRC stripped from frame) + RMII + MII Enable
   
   ENET->TCR = BIT_SET(8) | BIT_SET(2); // Addins (MAC address from PAUR+PALR) + Full duplex enable
-//ENET->TFWR = BIT_SET(8); // Acc/to SDK // Store And Forward Enable, 64 bytes (minimize tx latency)
-
-  // ******* *******
+  //ENET->TFWR = BIT_SET(8); // Store And Forward Enable, 64 bytes (minimize tx latency)
 
   // Configure descriptors and buffers
   // RX
-
   for (int i = 0; i < ENET_RXBD_NUM; i++) {
     // Wrap last descriptor buffer ptr
-    rx_buffer_descriptor[i].control = (i<(ENET_RXBD_NUM-1)?0:BIT_SET(13)) | BIT_SET(11); // (W?)+L
+    rx_buffer_descriptor[i].control = (i<(ENET_RXBD_NUM-1)?0:BIT_SET(13)) | BIT_SET(12);
     rx_buffer_descriptor[i].buffer = (uint32_t *)rx_data_buffer[i];
   }
-
-  // ******* *******
 
   // TX
   for (int i = 0; i < ENET_TXBD_NUM; i++) {
     // Wrap last descriptor buffer ptr
-    tx_buffer_descriptor[i].control = (i<(ENET_RXBD_NUM-1)?0:BIT_SET(13)) \
-                                    | BIT_SET(11) | BIT_SET(10); // (W?)+L+TC
+    tx_buffer_descriptor[i].control = (i<(ENET_RXBD_NUM-1)?0:BIT_SET(13)) | BIT_SET(12);
     tx_buffer_descriptor[i].buffer = (uint32_t *)tx_data_buffer[i];
   }
-
-  // ******* *******
 
   // Continue ENET configuration
   ENET->RDSR = (uint32_t)(uintptr_t)rx_buffer_descriptor;
   ENET->TDSR = (uint32_t)(uintptr_t)tx_buffer_descriptor;
   ENET->MRBR[0] = ENET_RXBUFF_SIZE; // Same size for RX/TX buffers
 
-  /*
-  // I>?
-  //Clear any pending interrupts
-  ENET->EIR = 0xFFFFFFFF;
-  //Enable desired interrupts
-  ENET->EIMR = BIT_SET(27) | BIT_SET(25) | BIT_SET(23); // TXF, RXF, EBERR
-  // ENET->EIMR = ENET_EIMR_TXF_MASK | ENET_EIMR_RXF_MASK | ENET_EIMR_EBERR_MASK;
-  */
-
-  // MAC address filtering
-  // (nota order revered / STM32)
+  // MAC address filtering (bytes in reversed order)
   ENET->PAUR = ((uint32_t) mac[4] << 24U) | (uint32_t) mac[5] << 16U;
   ENET->PALR = (uint32_t) (mac[0] << 24U) | ((uint32_t) mac[1] << 16U) |
                  ((uint32_t) mac[2] << 8U) | mac[3];
@@ -486,48 +332,19 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
   // RX Descriptor activation
   ENET->RDAR = BIT_SET(24); // Activate Receive Descriptor
 
-  // Enable ENET interrupts sources
-  // Dev
-  uint32_t enet_intr = 0;
-//enet_intr |= BIT_SET(27) | BIT_SET(26); // TXF+TXB                            -> Does nothing ? TX() misconf ?
-//enet_intr |= BIT_SET(25) | BIT_SET(24); // RXF+RXB                            -> Does nothing ? RX() misconf ?
-//enet_intr |= BIT_SET(22); // ERR
-//enet_intr = BIT_SET(22); //                                                   -> None
-//enet_intr = BIT_SET(23);                                                      -> INTR present
-  // Enable all interrupts except MII
-  enet_intr=0xffffffff;
-  enet_intr &= BIT_CLEAR(23); // MII intr
-  ENET->EIMR = enet_intr;
+  ENET->EIMR = BIT_SET(25) | BIT_SET(22); // Enable RX+ERR interrupts
 
-  // Test
-//ENET->EIMR = 0xffffffff; // Enable all interrupts                             -> INTR present
-//ENET->EIMR = 0x0000ffff; // Enable all interrupts                             -> None
-//ENET->EIMR = 0xff000000; // Enable all interrupts                             -> None
-//ENET->EIMR = 0x00f00000; // Enable all interrupts                             -> INTR present (23 MII)
-//ENET->EIMR = 0x000f0000; // Enable all interrupts                             -> None
-  // Debug op
-  // ENET->EIMR = BIT_SET(27) | BIT_SET(26) | BIT_SET(25) | BIT_SET(24) | BIT_SET(22); // Enable RX+TX+ERR intr
-  // Normal op
-  // ENET->EIMR = BIT_SET(25) | BIT_SET(22); // Enable RX+ERR interrupts
-
-  // MG_INFO(("ENET init OK"));
-  // display_registers();
-
-//(void) mac;
   (void) data;
   return true;
 }
-
-// ************* IF TX *************
 
 // Transmit frame
 static uint32_t s_txno;
 
 static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userdata) {
-  // MG_INFO((">>> TX !!!!!!!!")); // Done
 
   if (len > sizeof(tx_data_buffer[ENET_TXBD_NUM])) {
-//  MG_ERROR(("Frame too big, %ld", (long) len));
+  //  MG_ERROR(("Frame too big, %ld", (long) len));
     len = 0;  // Frame is too big
   } else if ((tx_buffer_descriptor[s_txno].control & BIT_SET(15))) {
   MG_ERROR(("No free descriptors"));
@@ -537,9 +354,9 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
     memcpy(tx_data_buffer[s_txno], buf, len);     // Copy data
     tx_buffer_descriptor[s_txno].length = (uint16_t) len;  // Set data len
     tx_buffer_descriptor[s_txno].control |= (uint16_t)(BIT_SET(10)); // TC (transmit CRC)
-//  tx_buffer_descriptor[s_txno].control &= (uint16_t)(BIT_SET(14) | BIT_SET(12)); // Own doesn't affect HW operation
+    //  tx_buffer_descriptor[s_txno].control &= (uint16_t)(BIT_SET(14) | BIT_SET(12)); // Own doesn't affect HW
     tx_buffer_descriptor[s_txno].control |= (uint16_t)(BIT_SET(15) | BIT_SET(11)); // R+L (ready+last)
-    ENET->TDAR = BIT_SET(24); // Descriptor updated. Hand over to DMA.
+    ENET->TDAR = BIT_SET(24); // Descriptor updated
     // Relevant Descriptor bits: 15(R): Ready, 14/12(TO1/2) Soft own,
     //                            11(L): last in frame, 10(TC): transmis CRC
     // FIXME Frames aresn't process by uDMA engine at this point.
@@ -548,36 +365,33 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
                 // exception" return might vector to incorrect interrupt.
     if (++s_txno >= ENET_TXBD_NUM) s_txno = 0;
   }
-
-  // INFO PHY: Green light did'nt come up initially -> Can start/negociate 10M line
-  // static int i=0;
-  // MG_INFO(("TX -> passing %d", i++));
-  /*(void) buf, (void) len,*/ (void) userdata;
+  (void) userdata;
   return len;
 }
 
-// ************* RX *************
-
-void ENET_IRQHandler(void);
+// IRQ (RX)
 static uint32_t s_rxno;
 
-void ENET_IRQHandler(void) {
-
-  // Read EIR
-  uint32_t eir = ENET->EIR;
-  // Display
-  if (eir == 0x800000) {
-    ENET->EIR = 0xffffffff; // Clear interrupts
-    return; // PHY access int.
-  }
-  else {
-    MG_INFO(("irq(rx): 0x%x", eir)); // Debug infos
-  }
-
+void ETH_IRQHandler(void) {
   if (rx_buffer_descriptor[s_rxno].control & BIT_SET(15)) return;  // Empty? -> exit.
   // Read inframes
   else { // Frame received, loop
-  MG_INFO(("************* irq:rx->data *************"));
+    for (uint32_t i = 0; i < 10; i++) {  // read as they arrive but not forever
+      if (rx_buffer_descriptor[s_rxno].control & BIT_SET(15)) break;  // exit when done
+      uint32_t len = (rx_buffer_descriptor[s_rxno].length);
+      if (s_rx != NULL)
+        s_rx(rx_buffer_descriptor[s_rxno].buffer, len > 4 ? len - 4 : len, s_rxdata);
+      rx_buffer_descriptor[s_rxno].control |= BIT_SET(15); // Inform DMA RX is empty
+      if (++s_rxno >= ENET_RXBD_NUM) s_rxno = 0;
+    }
+  }
+}
+
+void ENET_IRQHandler(void) {
+  if (rx_buffer_descriptor[s_rxno].control & BIT_SET(15)) return;  // Empty? -> exit.
+  // Read inframes
+  else { // Frame received, loop
+  MG_INFO(("irq:rx->data ")); // Debug message: rx intr received
     for (uint32_t i = 0; i < 10; i++) {  // read as they arrive but not forever
       if (rx_buffer_descriptor[s_rxno].control & BIT_SET(15)) break;  // exit when done
       uint32_t len = (rx_buffer_descriptor[s_rxno].length);
@@ -591,22 +405,12 @@ void ENET_IRQHandler(void) {
   ENET->EIR = 0xffffffff; // Clear interrupts
 }
 
-// ************* IF Up *************
-// >> Implementation OK
-
 // Up/down status
 static bool mip_driver_imx_rt1020_up(void *userdata) {
-  // MG_INFO(("Link up ?"));
   uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
-
   (void) userdata;
   return bsr & BIT_SET(2) ? 1 : 0;
 }
-
-// ************* Set RX CB *************
-// Migration? _setrx() -> _mip_rxcb()
-// >> Temporary: setrx -> rx (polling)
-// >> TODO IRQ interrupt driven
 
 // Set receive callback for interrupt-driven drivers
 static void mip_driver_imx_rt1020_setrx(void (*rx)(void *, size_t, void *),
@@ -615,94 +419,9 @@ static void mip_driver_imx_rt1020_setrx(void (*rx)(void *, size_t, void *),
   s_rxdata = rxdata;
 }
 
-// ************* Utilities *************
-
-// Utility to display Actual ENET registers content
-void display_registers() {
-  // Register read test
-  MG_INFO(("ENET->RAFL == %x", ENET->RAFL));
-  MG_INFO(("ENET->TAEM == %x", ENET->TAEM));
-  MG_INFO(("ENET->TAFL == %x", ENET->TAFL));
-  MG_INFO(("ENET->ECR == %x", ENET->ECR));
-  MG_INFO(("ENET->RCR == %x", ENET->RCR));
-  MG_INFO(("ENET->MMFR == %x", ENET->MMFR));
-  MG_INFO(("ENET->PAUR == %x", ENET->PAUR));
-  MG_INFO(("ENET->PALR == %x", ENET->PALR));
-  MG_INFO(("ENET->OPD == %x", ENET->OPD));
-  MG_INFO(("ENET->TIPG == %x", ENET->TIPG));
-  MG_INFO(("ENET->FTRL == %x", ENET->FTRL));
-  MG_INFO(("ENET->RAEM == %x", ENET->RAEM));
-  MG_INFO(("ENET->RAFL == %x", ENET->RAFL));
-  MG_INFO(("ENET->ATPER == %x", ENET->ATPER));
-  MG_INFO(("ENET->MIBC == %x", ENET->MIBC));
-}
-
-bool imx_rt1020_register_changed(void);
-bool imx1020_des_changed(void);
-bool imx_rt1020_buf_changed(void);
-bool imx_rt1020_register_changed(void);
-
-bool imx1020_des_changed(void) {
-//if state changed in desc -> notify & print
-  return 0;
-}
-bool imx_rt1020_buf_changed(void) {
-//if state changed buff -> notify & print
-  return 0;
-}
-bool imx_rt1020_register_changed(void) {
-//if state changed in ref -> notify & print
-  return 0;
-}
-
-// Clock speed test
-void clock_speed_test() {
-  while (1){
-    delay(0x500000); // Approx 1s
-    MG_INFO(("c"));
-  }
-}
-
-// ************* API *************
-
-// Interrupt driven call-back
-// mip_rxcb: New API
-
+// API
 struct mip_driver mip_driver_imx_rt1020 = {
   mip_driver_imx_rt1020_init, mip_driver_imx_rt1020_tx, NULL,
   mip_driver_imx_rt1020_up, mip_driver_imx_rt1020_setrx};
 
-// *************  *************
-
 #endif
-
-// TODO Work in progress:
-// Functions: TX, RX, IRQ
-// Migrate to full descriptor so we can check frame status, errors, ...
-
-/*
-TODO
-Check Constraints for MDC:
-  Frequency <= 2.5 MHz
-  Holdtime  >=  10 ns
-*/
-
-/*
-Measurements (scope)
-  PHY
-    Clock pins OK: RMII / 50MHz: ENET_TX_CLK at PHY:XI
-    TXEN: route OK.
-    RXD0: Signal OK.
-*/
-
-/*
-FIXME
-Trace back TP15 silent with MIP (should rcv outputs at DHCP requests).
-*/
-
-/*
-References
-  SDK
-    ENET_SetMacController()
-    CLOCK_EnableClock(); // ENET: CCGR1:CG5 (CCM_CCGR1_CG5_SHIFT)
-*/

@@ -1,9 +1,6 @@
 #include "mip.h"
 
 #if MG_ENABLE_MIP && defined(MG_ENABLE_DRIVER_STM32)
-    (!defined(MG_ENABLE_DRIVER_TM4C) || MG_ENABLE_DRIVER_TM4C == 0)
-
-// ************* STM32 Register access struct (ENET/MAC) *************
 
 struct stm32_eth {
   volatile uint32_t MACCR, MACFFR, MACHTHR, MACHTLR, MACMIIAR, MACMIIDR, MACFCR,
@@ -19,8 +16,6 @@ struct stm32_eth {
       DMACHRBAR;
 };
 
-// *************  *************
-
 #undef ETH
 #define ETH ((struct stm32_eth *) (uintptr_t) 0x40028000)
 
@@ -30,11 +25,6 @@ struct stm32_eth {
 #define ETH_DESC_CNT 4     // Descriptors count
 #define ETH_DS 4           // Descriptor size (words)
 
-// jfs Q:
-// static uint32_t s_rxdesc[ETH_DESC_CNT][ETH_DS];      // RX descriptors
-// -> Shouldn't it be s_rxdesc[ETH_DS][ETH_DESC_CNT] ?
-
-// JFS: 2 descriptors + 2 buffers
 static uint32_t s_rxdesc[ETH_DESC_CNT][ETH_DS];      // RX descriptors
 static uint32_t s_txdesc[ETH_DESC_CNT][ETH_DS];      // TX descriptors
 static uint8_t s_rxbuf[ETH_DESC_CNT][ETH_PKT_SIZE];  // RX ethernet buffers
@@ -43,11 +33,7 @@ static uint8_t s_txbuf[ETH_DESC_CNT][ETH_PKT_SIZE];  // TX ethernet buffers
 static void (*s_rx)(void *, size_t, void *);         // Recv callback
 static void *s_rxdata;                               // Recv callback data
 
-// ************* PHY *************
-
 enum { PHY_ADDR = 0, PHY_BCR = 0, PHY_BSR = 1 };     // PHY constants
-
-// ************* PHY read *************
 
 static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
   ETH->MACMIIAR &= (7 << 2);
@@ -57,8 +43,6 @@ static uint32_t eth_read_phy(uint8_t addr, uint8_t reg) {
   return ETH->MACMIIDR;
 }
 
-// ************* PHY write *************
-
 static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
   ETH->MACMIIDR = val;
   ETH->MACMIIAR &= (7 << 2);
@@ -66,8 +50,6 @@ static void eth_write_phy(uint8_t addr, uint8_t reg, uint32_t val) {
   ETH->MACMIIAR |= BIT(0);
   while (ETH->MACMIIAR & BIT(0)) (void) 0;
 }
-
-// ************* MCU Clock guess: internal *************
 
 static uint32_t get_hclk(void) {
   struct rcc {
@@ -94,8 +76,6 @@ static uint32_t get_hclk(void) {
   uint8_t ahbptab[8] = {1, 2, 3, 4, 6, 7, 8, 9};  // log2(div)
   return ((uint32_t) clk) >> ahbptab[hpre - 8];
 }
-
-// ************* MCU Clock guess: API *************
 
 //  Guess CR from HCLK. MDC clock is generated from HCLK (AHB); as per 802.3,
 //  it must not exceed 2.5MHz As the AHB clock can be (and usually is) derived
@@ -126,11 +106,7 @@ static int guess_mdc_cr(void) {
   return result;
 }
 
-// ************* Initialization *************
-
 static bool mip_driver_stm32_init(uint8_t *mac, void *userdata) {
-
-  // ******* Descriptors RX *******
 
   // Init RX descriptors
   for (int i = 0; i < ETH_DESC_CNT; i++) {
@@ -141,16 +117,12 @@ static bool mip_driver_stm32_init(uint8_t *mac, void *userdata) {
         (uint32_t) (uintptr_t) s_rxdesc[(i + 1) % ETH_DESC_CNT];  // Chain
   }
 
-  // ******* Descriptors TX *******
-
   // Init TX descriptors
   for (int i = 0; i < ETH_DESC_CNT; i++) {
     s_txdesc[i][2] = (uint32_t) (uintptr_t) s_txbuf[i];  // Buf pointer
     s_txdesc[i][3] =
         (uint32_t) (uintptr_t) s_txdesc[(i + 1) % ETH_DESC_CNT];  // Chain
   }
-
-  // ******* PHY setup *******
 
   ETH->DMABMR |= BIT(0);                         // Software reset
   while ((ETH->DMABMR & BIT(0)) != 0) (void) 0;  // Wait until done
@@ -181,15 +153,11 @@ static bool mip_driver_stm32_init(uint8_t *mac, void *userdata) {
   return true;
 }
 
-// ************* Set RX *************
-
 static void mip_driver_stm32_setrx(void (*rx)(void *, size_t, void *),
                                    void *rxdata) {
   s_rx = rx;
   s_rxdata = rxdata;
 }
-
-// ************* TX *************
 
 static uint32_t s_txno;
 
@@ -214,15 +182,11 @@ static size_t mip_driver_stm32_tx(const void *buf, size_t len, void *userdata) {
   (void) userdata;
 }
 
-// ************* UP *************
-
 static bool mip_driver_stm32_up(void *userdata) {
   uint32_t bsr = eth_read_phy(PHY_ADDR, PHY_BSR);
   (void) userdata;
   return bsr & BIT(2) ? 1 : 0;
 }
-
-// ************* RX IRQ *************
 
 void ETH_IRQHandler(void);
 static uint32_t s_rxno;
@@ -249,12 +213,8 @@ void ETH_IRQHandler(void) {
   ETH->DMARPDR = 0;     // and resume RX
 }
 
-// ************* Driver API *************
-
 struct mip_driver mip_driver_stm32 = {
     mip_driver_stm32_init, mip_driver_stm32_tx, NULL, mip_driver_stm32_up,
     mip_driver_stm32_setrx};
-
-// *************  *************
 
 #endif
