@@ -524,7 +524,7 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
 static uint32_t s_txno;
 
 static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userdata) {
-  // MG_INFO((">>> TX !!!!!!!!"));
+  // MG_INFO((">>> TX !!!!!!!!")); // Done
 
   if (len > sizeof(tx_data_buffer[ENET_TXBD_NUM])) {
 //  MG_ERROR(("Frame too big, %ld", (long) len));
@@ -539,7 +539,7 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
     tx_buffer_descriptor[s_txno].control |= (uint16_t)(BIT_SET(10)); // TC (transmit CRC)
 //  tx_buffer_descriptor[s_txno].control &= (uint16_t)(BIT_SET(14) | BIT_SET(12)); // Own doesn't affect HW operation
     tx_buffer_descriptor[s_txno].control |= (uint16_t)(BIT_SET(15) | BIT_SET(11)); // R+L (ready+last)
-    ENET->TDAR = BIT_SET(24); // Descriptor updated
+    ENET->TDAR = BIT_SET(24); // Descriptor updated. Hand over to DMA.
     // Relevant Descriptor bits: 15(R): Ready, 14/12(TO1/2) Soft own,
     //                            11(L): last in frame, 10(TC): transmis CRC
     // FIXME Frames aresn't process by uDMA engine at this point.
