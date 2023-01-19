@@ -307,7 +307,7 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
 
   // Setup MII/RMII MDC clock divider (<= 2.5MHz).
 //  ENET->MSCR = 0x118; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x18
-  ENET->MSCR = 0x130; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x18
+  ENET->MSCR = 0x130; // HOLDTIME 2 clk, Preamble enable, MDC MII_Speed Div 0x30
   eth_write_phy(PHY_ADDR, PHY_BCR, 0x8000); // PHY W @0x00 D=0x8000 Soft reset
   while (eth_read_phy(PHY_ADDR, PHY_BSR) & BIT_SET(15)) {delay(0x5000);} // Wait finished poll 10ms
 
@@ -444,7 +444,6 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
   // ******* *******
 
   // TX
-  // FIXME
   for (int i = 0; i < ENET_TXBD_NUM; i++) {
     // Wrap last descriptor buffer ptr
     tx_buffer_descriptor[i].control = (i<(ENET_RXBD_NUM-1)?0:BIT_SET(13)) \
@@ -487,7 +486,29 @@ static bool mip_driver_imx_rt1020_init(uint8_t *mac, void *data) {
   // RX Descriptor activation
   ENET->RDAR = BIT_SET(24); // Activate Receive Descriptor
 
-  ENET->EIMR = 0xffffffff; // Enable all interrupts
+  // Enable ENET interrupts sources
+  // Dev
+  uint32_t enet_intr = 0;
+//enet_intr |= BIT_SET(27) | BIT_SET(26); // TXF+TXB                            -> Does nothing ? TX() misconf ?
+//enet_intr |= BIT_SET(25) | BIT_SET(24); // RXF+RXB                            -> Does nothing ? RX() misconf ?
+//enet_intr |= BIT_SET(22); // ERR
+//enet_intr = BIT_SET(22); //                                                   -> None
+//enet_intr = BIT_SET(23);                                                      -> INTR present
+  // Enable all interrupts except MII
+  enet_intr=0xffffffff;
+  enet_intr &= BIT_CLEAR(23); // MII intr
+  ENET->EIMR = enet_intr;
+
+  // Test
+//ENET->EIMR = 0xffffffff; // Enable all interrupts                             -> INTR present
+//ENET->EIMR = 0x0000ffff; // Enable all interrupts                             -> None
+//ENET->EIMR = 0xff000000; // Enable all interrupts                             -> None
+//ENET->EIMR = 0x00f00000; // Enable all interrupts                             -> INTR present (23 MII)
+//ENET->EIMR = 0x000f0000; // Enable all interrupts                             -> None
+  // Debug op
+  // ENET->EIMR = BIT_SET(27) | BIT_SET(26) | BIT_SET(25) | BIT_SET(24) | BIT_SET(22); // Enable RX+TX+ERR intr
+  // Normal op
+  // ENET->EIMR = BIT_SET(25) | BIT_SET(22); // Enable RX+ERR interrupts
 
   // MG_INFO(("ENET init OK"));
   // display_registers();
@@ -529,8 +550,7 @@ static size_t mip_driver_imx_rt1020_tx(const void *buf, size_t len, void *userda
   }
 
   // INFO PHY: Green light did'nt come up initially -> Can start/negociate 10M line
-  static int i=0;
-
+  // static int i=0;
   // MG_INFO(("TX -> passing %d", i++));
   /*(void) buf, (void) len,*/ (void) userdata;
   return len;
@@ -557,7 +577,7 @@ void ENET_IRQHandler(void) {
   if (rx_buffer_descriptor[s_rxno].control & BIT_SET(15)) return;  // Empty? -> exit.
   // Read inframes
   else { // Frame received, loop
-  MG_INFO(("irq:rx->data "));
+  MG_INFO(("************* irq:rx->data *************"));
     for (uint32_t i = 0; i < 10; i++) {  // read as they arrive but not forever
       if (rx_buffer_descriptor[s_rxno].control & BIT_SET(15)) break;  // exit when done
       uint32_t len = (rx_buffer_descriptor[s_rxno].length);
