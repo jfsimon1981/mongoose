@@ -308,10 +308,12 @@ static void sntp_cb(struct mg_connection *c, int ev, void *evd, void *fnd) {
 }
 
 static void test_sntp_server(const char *url) {
-MG_DEBUG(("*************"));
+MG_DEBUG(("************* Begining *************"));
   int trials = 10;
   int64_t ms = 0;
+  int n = 0;
   while ((trials-- > 0) && !ms) {
+    n++;
     struct mg_mgr mgr;
     struct mg_connection *c = NULL;
     int i;
@@ -330,7 +332,7 @@ MG_DEBUG(("*************"));
     }
     mg_mgr_free(&mgr);
   }
-MG_DEBUG(("*************"));
+MG_DEBUG(("************* End after %d attemp(s) *************", n));
   ASSERT(ms > 0);
 }
 
