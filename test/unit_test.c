@@ -306,7 +306,7 @@ static void sntp_cb(struct mg_connection *c, int ev, void *evd, void *fnd) {
   }
   (void) c;
 }
-// Up.........
+// Up..........
 static void test_sntp_server(const char *url) {
 MG_DEBUG(("************* Begining *************"));
   int trials = 6;
@@ -324,13 +324,14 @@ MG_DEBUG(("************* Begining *************"));
     ASSERT(c->is_udp == 1);
     for (i = 0; i < 60 && ms == 0; i++) mg_mgr_poll(&mgr, 50);
     MG_DEBUG(("server: %s, ms: %lld", url ? url : "(default)", ms));
+    mg_mgr_free(&mgr);
+    // New attemps
     if (!ms) {
-      const uint64_t exp = 5000; // Timer expiration, ms
+      const uint64_t exp = 15000; // Timer expiration, ms
       uint64_t t0 = mg_millis();
       while ((mg_millis() - t0) < exp);
       MG_DEBUG(("sntp server new attemps"));
     }
-    mg_mgr_free(&mgr);
   }
 MG_DEBUG(("************* End after %d attemp(s) *************", n));
   ASSERT(ms > 0);
