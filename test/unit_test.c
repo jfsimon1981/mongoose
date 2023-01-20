@@ -306,7 +306,7 @@ static void sntp_cb(struct mg_connection *c, int ev, void *evd, void *fnd) {
   }
   (void) c;
 }
-// Up...................
+// Up....................
 static void test_sntp_server(const char *url) {
 MG_DEBUG(("************* Begining *************"));
   int trials = 6;
