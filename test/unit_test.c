@@ -308,19 +308,28 @@ static void sntp_cb(struct mg_connection *c, int ev, void *evd, void *fnd) {
 }
 
 static void test_sntp_server(const char *url) {
+  int trials = 10;
   int64_t ms = 0;
-  struct mg_mgr mgr;
-  struct mg_connection *c = NULL;
-  int i;
+  while ((trials-- > 0) && !ms) {
+    struct mg_mgr mgr;
+    struct mg_connection *c = NULL;
+    int i;
 
-  mg_mgr_init(&mgr);
-  c = mg_sntp_connect(&mgr, url, sntp_cb, &ms);
-  ASSERT(c != NULL);
-  ASSERT(c->is_udp == 1);
-  for (i = 0; i < 60 && ms == 0; i++) mg_mgr_poll(&mgr, 50);
-  MG_DEBUG(("server: %s, ms: %lld", url ? url : "(default)", ms));
+    mg_mgr_init(&mgr);
+    c = mg_sntp_connect(&mgr, url, sntp_cb, &ms);
+    ASSERT(c != NULL);
+    ASSERT(c->is_udp == 1);
+    for (i = 0; i < 60 && ms == 0; i++) mg_mgr_poll(&mgr, 50);
+    MG_DEBUG(("server: %s, ms: %lld", url ? url : "(default)", ms));
+    if (!ms) {
+      const uint64_t exp = 1000; // Timer expiration, ms
+      uint64_t t0 = mg_millis();
+      while ((mg_millis() - t0) < exp);
+      printf("top\r\n");
+    }
+    mg_mgr_free(&mgr);
+  }
   ASSERT(ms > 0);
-  mg_mgr_free(&mgr);
 }
 
 static void test_sntp(void) {
@@ -2647,6 +2656,9 @@ static void test_poll(void) {
   ASSERT(count == 10);
   mg_mgr_free(&mgr);
 }
+
+void void_cb(void *);
+void void_cb(void * nil) {(void)nil;}
 
 int main(void) {
   const char *debug_level = getenv("V");
