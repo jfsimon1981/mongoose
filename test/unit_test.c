@@ -308,6 +308,7 @@ static void sntp_cb(struct mg_connection *c, int ev, void *evd, void *fnd) {
 }
 
 static void test_sntp_server(const char *url) {
+MG_DEBUG(("*************"));
   int trials = 10;
   int64_t ms = 0;
   while ((trials-- > 0) && !ms) {
@@ -325,10 +326,11 @@ static void test_sntp_server(const char *url) {
       const uint64_t exp = 1000; // Timer expiration, ms
       uint64_t t0 = mg_millis();
       while ((mg_millis() - t0) < exp);
-      printf("top\r\n");
+      MG_DEBUG(("sntp server new attemps"));
     }
     mg_mgr_free(&mgr);
   }
+MG_DEBUG(("*************"));
   ASSERT(ms > 0);
 }
 
