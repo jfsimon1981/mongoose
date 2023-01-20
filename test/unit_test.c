@@ -359,7 +359,7 @@ static void mqtt_cb(struct mg_connection *c, int ev, void *evd, void *fnd) {
     }
   } else if (ev == MG_EV_MQTT_MSG) {
     struct mg_mqtt_message *mm = (struct mg_mqtt_message *) evd;
-    snprintf(buf + 1, mm->topic.len + mm->data.len + 2, "%.*s/%.*s", (int) mm->topic.len, mm->topic.ptr,
+    snprintf(buf + 1, (size_t)(-1), "%.*s/%.*s", (int) mm->topic.len, mm->topic.ptr,
             (int) mm->data.len, mm->data.ptr);
   }
   (void) c;
@@ -1649,7 +1649,7 @@ static void test_str(void) {
 }
 
 static void fn1(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
-  if (ev == MG_EV_ERROR) sprintf((char *) fn_data, "%s", (char *) ev_data);
+  if (ev == MG_EV_ERROR) snprintf((char *) fn_data, (size_t)(-1), "%s", (char *) ev_data);
   (void) c;
 }
 
