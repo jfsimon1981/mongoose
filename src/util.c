@@ -1,5 +1,5 @@
 #include "util.h"
-
+// Test build
 #if MG_ENABLE_CUSTOM_RANDOM
 #else
 void mg_random(void *buf, size_t len) {
