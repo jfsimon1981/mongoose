@@ -379,6 +379,12 @@ static void test_mqtt_ver(uint8_t mqtt_version) {
   int i;
   mg_mgr_init(&mgr);
 
+  // Ping the client
+  c = mg_mqtt_connect(&mgr, url, NULL, mqtt_cb, &test_data);
+  mg_mqtt_ping(c);
+  for (i = 0; i < 300 && (!c->is_accepted) == 0; i++) mg_mgr_poll(&mgr, 10);
+  ASSERT(c->is_accepted);
+
   // Connect with empty client ID
   c = mg_mqtt_connect(&mgr, url, NULL, mqtt_cb, &test_data);
   for (i = 0; i < 300 && buf[0] == 0; i++) mg_mgr_poll(&mgr, 10);
