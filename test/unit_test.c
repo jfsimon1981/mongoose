@@ -2286,6 +2286,7 @@ static void w3(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
     char buf[8192];
     memset(buf, 'A', sizeof(buf));
     mg_ws_send(c, "hi there!", 9, WEBSOCKET_OP_TEXT);
+    mg_ws_printf(c, WEBSOCKET_OP_TEXT, "%s", "hi there2!");
     mg_printf(c, "%s", "boo");
     mg_ws_wrap(c, 3, WEBSOCKET_OP_TEXT);
     mg_ws_send(c, buf, sizeof(buf), WEBSOCKET_OP_TEXT);
@@ -2325,6 +2326,8 @@ static void w2(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
     // mg_hexdump(wm->data.ptr, wm->data.len);
     if (wm->data.len == 9) {
       ASSERT(mg_strcmp(wm->data, mg_str("hi there!")) == 0);
+    } else if (wm->data.len == 10) {
+      ASSERT(mg_strcmp(wm->data, mg_str("hi there2!")) == 0);
     } else if (wm->data.len == 3) {
       ASSERT(mg_strcmp(wm->data, mg_str("boo")) == 0);
     } else {
@@ -2343,9 +2346,8 @@ static void test_ws_fragmentation(void) {
   ASSERT(mg_http_listen(&mgr, url, w2, NULL) != NULL);
   mg_ws_connect(&mgr, url, w3, &done, "%s", "Sec-WebSocket-Protocol: echo\r\n");
   for (i = 0; i < 25; i++) mg_mgr_poll(&mgr, 1);
-  // MG_INFO(("--> %d", done));
+MG_INFO(("--> %d", done));
   ASSERT(done == 11);
-
   mg_mgr_free(&mgr);
   ASSERT(mgr.conns == NULL);
 }
