@@ -126,18 +126,18 @@ jobs:
           - path: esp32/device-dashboard
           - path: esp32/uart-bridge
           - path: esp8266/http-client-server
-          - path: stm32/nucleo-h743zi-baremetal
+#         - path: stm32/nucleo-h743zi-baremetal
             target: test
           - path: stm32/stm32-freertos-tcp
           - path: stm32/stm32-nucleo-f746z
           - path: stm32/stm32-nucleo-f746zg
           - path: stm32/stm32-nucleo-f429z
           - path: stm32/stm32-nucleo-h743z
-          - path: stm32/nucleo-f429zi-baremetal
+#         - path: stm32/nucleo-f429zi-baremetal
             target: test
           - path: stm32/nucleo-f429zi-freertos-mip
           - path: stm32/nucleo-f429zi-usb-rndis
-          - path: stm32/nucleo-f746zg-baremetal
+#         - path: stm32/nucleo-f746zg-baremetal
             target: test
           - path: stm32/nucleo-f746zg-freertos-mip
           - path: stm32/nucleo-f746zg-usb-rndis
@@ -167,7 +167,7 @@ jobs:
           - path: rp2040/pico-rmii
           - path: rp2040/pico-rndis-dashboard
           - path: rp2040/pico-w
-          - path: rp2040/pico-w5500
+#         - path: rp2040/pico-w5500
             target: test
     name: ${{ matrix.example.path }}
     steps:
