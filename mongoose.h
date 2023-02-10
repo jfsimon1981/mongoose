@@ -790,10 +790,9 @@ char *mg_remove_double_dots(char *s);
 typedef void (*mg_pfn_t)(char, void *);                  // Output function
 typedef size_t (*mg_pm_t)(mg_pfn_t, void *, va_list *);  // %M printer
 
+// The lowest level
 size_t mg_vxprintf(void (*)(char, void *), void *, const char *fmt, va_list *);
 size_t mg_xprintf(void (*fn)(char, void *), void *, const char *fmt, ...);
-
-
 
 // Convenience wrappers around mg_xprintf
 size_t mg_vsnprintf(char *buf, size_t len, const char *fmt, va_list *ap);
@@ -810,7 +809,6 @@ size_t mg_print_mac(void (*out)(char, void *), void *arg, va_list *ap);
 
 // Various output functions
 void mg_pfn_iobuf(char ch, void *param);  // param: struct mg_iobuf *
-void mg_pfn_queue(char ch, void *param);  // param: struct mg_queue *
 void mg_pfn_stdout(char c, void *param);  // param: ignored
 
 
