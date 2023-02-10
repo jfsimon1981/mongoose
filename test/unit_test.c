@@ -2346,8 +2346,9 @@ static void test_ws_fragmentation(void) {
   ASSERT(mg_http_listen(&mgr, url, w2, NULL) != NULL);
   mg_ws_connect(&mgr, url, w3, &done, "%s", "Sec-WebSocket-Protocol: echo\r\n");
   for (i = 0; i < 25; i++) mg_mgr_poll(&mgr, 1);
-MG_INFO(("--> %d", done));
+  // MG_INFO(("--> %d", done));
   ASSERT(done == 11);
+
   mg_mgr_free(&mgr);
   ASSERT(mgr.conns == NULL);
 }
